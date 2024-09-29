@@ -2,13 +2,19 @@ import operator
 from functools import reduce
 import requests
 import json
-
+import os
+from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler, MessageHandler, filters
 
-YONOTE_API_TOKEN = "1peRDq0Rc18ynrrBM1tH7jtlalCmd31n4q2rJm"
-YONOTE_API_URL = "https://app.yonote.ru/api"
-TELEGRAM_BOT_TOKEN = '7087717097:AAGKXqPoIourUWxrUzyDO91cLrAbIcASyKg'
+load_dotenv()
+
+
+YONOTE_API_TOKEN="1MzaGcH24yRGhjdzUX8GoxDTSc9Ah4gW44okVC"
+YONOTE_API_URL="https://app.yonote.ru/api"
+TELEGRAM_BOT_TOKEN="7087717097:AAG-UdEq_VTq6Ae-y89b3ue91mcZrjyYqAc"
+
+
 
 headers = {
     'Authorization': f'Bearer {YONOTE_API_TOKEN}',
@@ -54,16 +60,43 @@ def get_databases():
     return databases
 
 
+# def get_db_tags(db_id):
+#     response = post('documents.info', {"id": db_id})
+
+#     # Если ответ пустой или содержит ошибку, возвращаем пустые данные
+#     if not response:
+#         print(f'Не удалось получить информацию о документе для ID: {db_id}')
+#         return {}, {}
+
+#     props = response.get('data', {}).get('document', {}).get('properties', [])
+
+#     if not props:
+#         print(f'Свойства документа не найдены для ID: {db_id}')
+#         return {}, {}
+
+#     props_with_options = list(filter(lambda x: len(x.get('options', [])) > 0, props))
+#     tags_names = dict()
+#     props_ids = dict()
+#     for x in props_with_options:
+#         options = dict()
+#         for y in x.get('options'):
+#             options[y.get('label')] = y.get('id')
+#         tags_names[x.get('title')] = options
+#     for x in props:
+#         props_ids[x.get('title')] = x.get('id')
+#     return tags_names, props_ids
+
 def get_db_tags(db_id):
     response = post('documents.info', {"id": db_id})
 
-    # Если ответ пустой или содержит ошибку, возвращаем пустые данные
+    # Проверка успешного ответа
     if not response:
         print(f'Не удалось получить информацию о документе для ID: {db_id}')
         return {}, {}
 
     props = response.get('data', {}).get('document', {}).get('properties', [])
 
+    # Проверка, есть ли свойства
     if not props:
         print(f'Свойства документа не найдены для ID: {db_id}')
         return {}, {}
@@ -71,13 +104,20 @@ def get_db_tags(db_id):
     props_with_options = list(filter(lambda x: len(x.get('options', [])) > 0, props))
     tags_names = dict()
     props_ids = dict()
+
+    # Добавляем проверку на наличие значений опций
     for x in props_with_options:
         options = dict()
         for y in x.get('options'):
             options[y.get('label')] = y.get('id')
-        tags_names[x.get('title')] = options
+        # Проверяем наличие тегов
+        if options:
+            tags_names[x.get('title')] = options
+        else:
+            print(f"Столбец '{x.get('title')}' не содержит тегов и будет пропущен.")
     for x in props:
         props_ids[x.get('title')] = x.get('id')
+
     return tags_names, props_ids
 
 
@@ -87,12 +127,16 @@ def get_url(row, props_ids):
 
     yd_name = 'Ссылка на Яндекс диск'
     title_name = 'Название'
+    document_name = 'Документ'
 
     title = title or props.get(props_ids.get(title_name, ''), '')
     title = title.replace('-', '\-').replace('(', '\(').replace(')', '\)').replace('.', '\.').replace(',', '\,')
 
-    url = props.get(props_ids.get(yd_name, ''), '')
-    url = url if isinstance(url, str) else url.get('url', '')
+    # url = props.get(props_ids.get(yd_name, ''), '')
+    # url = url if isinstance(url, str) else url.get('url', '')
+
+    url = props.get(props_ids.get(document_name, ''), '')
+    url = "" if len(url) == 0 else f"https://imwes.yonote.ru{url[0].get('downloadURL', '')}"
 
     if url and title:
         return f'[{title}]({url})'
@@ -116,10 +160,20 @@ def get_rows(id, props_ids, tags: set):
         }
         page = post('database.rows.list', data).get('data', [])
         filtered_data = page if len(tags) == 0 else list(
-            filter(lambda x: len(tags.intersection(set(
-                reduce(operator.iconcat, filter(lambda y: isinstance(y, list), x.get('properties', {}).values()), [])
-            ))) > 0, page)
+            filter(lambda x: len(tags.intersection(
+                set(
+                    reduce(operator.iconcat, 
+                        filter(lambda y: all(isinstance(item, (str, int)) for item in y),  
+                            x.get('properties', {}).values()), [])
+                )
+            )) > 0, page)
         )
+
+        # filtered_data = page if len(tags) == 0 else list(
+        #     filter(lambda x: len(tags.intersection(set(
+        #         reduce(operator.iconcat, filter(lambda y: isinstance(y, list), x.get('properties', {}).values()), [])
+        #     ))) > 0, page)
+        # )
 
         filtered_data = list(
             filter(lambda url: url is not None,
@@ -371,22 +425,33 @@ async def option_button(update: Update, context: CallbackContext):
     selected_option = query.data[len('option:'):]
     selected_tag = query.message.text
 
-    for tag in tags[selected_tag]:
-        if tag.startswith(selected_option):
-            selected_option = tag
-            break
-
+    # Если selected_option равно 'назад ↩️', вернемся к выбору тегов
     if selected_option == 'назад ↩️':
         await query.edit_message_text('Выберите тэг:', reply_markup=build_tags_keyboard(context))
         return
 
+    # Проверка и нахождение полного значения selected_option
+    for tag in tags.get(selected_tag, {}):
+        if tag.startswith(selected_option):
+            selected_option = tag
+            break
+
+    # Если selected_tag не найден или значение некорректно, отправляем сообщение о проблеме
+    if selected_tag is None or selected_tag not in tags:
+        await query.message.reply_text('Ошибка: выбранный тег не найден. Попробуйте снова.')
+        return
+
+    # Проверяем, если тег уже выбран, убираем его, иначе добавляем
     if has_tag(context, selected_tag, selected_option):
         unset_tag(context, selected_tag, selected_option)
     else:
         set_tag(context, selected_tag, selected_option)
 
+    # Обновляем сообщение с текущими выбранными опциями
     await query.edit_message_reply_markup(
-        reply_markup=build_options_keyboard(context, selected_tag, tags[selected_tag]))
+        reply_markup=build_options_keyboard(context, selected_tag, tags[selected_tag])
+    )
+
 
 
 ####################################
@@ -411,11 +476,10 @@ async def send_tags_image_with_keyboard(update: Update, context: CallbackContext
     # Если используем URL
     await context.bot.send_photo(
         chat_id=chat_id,
-        photo="https://imgur.com/a/tags-uVpeZJT",
+        photo="https://imgur.com/a/PxT9VPK",
         caption="Выберите теги:",
         reply_markup=build_tags_keyboard(context)
     )
-
 
 
 if __name__ == "__main__":
