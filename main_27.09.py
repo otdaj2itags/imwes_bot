@@ -10,9 +10,9 @@ from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQ
 load_dotenv()
 
 
-YONOTE_API_TOKEN="1MzaGcH24yRGhjdzUX8GoxDTSc9Ah4gW44okVC"
+YONOTE_API_TOKEN=""
 YONOTE_API_URL="https://app.yonote.ru/api"
-TELEGRAM_BOT_TOKEN="7087717097:AAG-UdEq_VTq6Ae-y89b3ue91mcZrjyYqAc"
+TELEGRAM_BOT_TOKEN=""
 
 
 
