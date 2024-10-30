@@ -132,11 +132,11 @@ def get_url(row, props_ids):
     title = title or props.get(props_ids.get(title_name, ''), '')
     title = title.replace('-', '\-').replace('(', '\(').replace(')', '\)').replace('.', '\.').replace(',', '\,')
 
-    # url = props.get(props_ids.get(yd_name, ''), '')
-    # url = url if isinstance(url, str) else url.get('url', '')
+    url = props.get(props_ids.get(yd_name, ''), '')
+    url = url if isinstance(url, str) else url.get('url', '')
 
-    url = props.get(props_ids.get(document_name, ''), '')
-    url = "" if len(url) == 0 else f"https://imwes.yonote.ru{url[0].get('downloadURL', '')}"
+    # url = props.get(props_ids.get(document_name, ''), '')
+    # url = "" if len(url) == 0 else f"https://imwes.yonote.ru{url[0].get('downloadURL', '')}"
 
     if url and title:
         return f'[{title}]({url})'
