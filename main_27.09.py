@@ -7,8 +7,6 @@ from dotenv import load_dotenv
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackContext, CallbackQueryHandler, MessageHandler, filters
 
-load_dotenv()
-
 
 YONOTE_API_TOKEN=""
 YONOTE_API_URL="https://app.yonote.ru/api"
