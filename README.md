@@ -1,1 +1,1 @@
-Бот, позволяющий эффективно и быстро получать материалы из базы данных Центра мировой военной экономики и стратегии при помощи API платформы Yonote
+Bot lets to get content from IMWES HSE Database through Yonote platform API
